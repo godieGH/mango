@@ -1,5 +1,5 @@
 {
-  "description": "swazi external package manager written in swazi, a prototype sof swazi package manager, swazi is basically intending to ship its package manager into the its swazi software but mango is an external prototype written in swazi that design to work as what swazi internal package manager will work",
+  "description": "Mango is a prototype package manager written in SwaziLang that acts as a reference implementation for Swazi’s future built-in package management system. It runs externally today, but its architecture and behavior are intentionally designed to mirror what the Swazi internal package manager will eventually provide natively inside the Swazi runtime.",
   "name": "mango",
   "engines": {
     "swazi": "^2.33.0"
@@ -7,7 +7,7 @@
   "type": "package",
   "entry": "app.sl",
   "bin": "app.sl",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "vendor": {
     "swazi-toml": "latest",
     "chalk": "^1.0.0",
