@@ -1,0 +1,38 @@
+# specials
+vendor
+addons
+swazi
+abi
+
+# builtin modules
+fs
+path
+regex
+json
+streams
+ipc
+uv
+file
+base64
+buffer
+http
+net
+https
+subprocess
+process
+stdin
+os
+crypto
+archiver
+events
+collections
+datetime
+
+# keywords
+kama
+kwa
+kutoka
+kazi
+wakati
+tupa
+throw

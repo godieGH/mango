@@ -1,0 +1,389 @@
+// src/utils/helpers.swz
+tumia fs
+tumia path
+tumia json
+tumia regex
+tumia archiver
+tumia buffer
+tumia crypto
+
+tumia "./logger.swz"
+
+// ========================================
+// Helper functions
+// ========================================
+
+kazi get_project_root(project) {
+  data pth = project;
+  data met_root = sikweli;
+  wakati kweli {
+    kama pth == "/" {
+      tupa "The project has no root found! \nEnsure there is a valid `swazi.json` in the root directory before running this command!"
+    }
+    data ls = fs.listDir(pth)
+    kwa l ktk ls {
+      kama l === "swazi.json" {
+        met_root = kweli
+        simama;
+      }
+    }
+    kama met_root {
+      simama;
+    }
+    pth = path.resolve(pth, "..")
+  }
+  rudisha pth;
+}
+
+kazi load_and_parse_manifestfile(root) {
+  data manifestfile = path.resolve(root, "swazi.json")
+
+  data content = json.parse(fs.readFile(manifestfile))
+
+  rudisha content
+}
+
+kazi is_readme_available_at_root(root) {
+  data docs = path.resolve(root, "README.md")
+  rudisha fs.exists(docs)
+}
+
+kazi load_readme(root) {
+  kama !is_readme_available_at_root(root) {
+    tupa "No readme file availabale to load!"
+  }
+  rudisha fs.readFile(path.resolve(root, "README.md"))
+}
+
+kazi package_name_is_valid(name) {
+  kama !name au !name.trim() au name.trim().size > 210 {
+    tupa "Package name must be between 1 and 210 characters"
+  }
+
+  kama /[A-Z]+/.test(name) {
+    tupa "Package name should be all lower case: \nChange `" + name + "` -> `" + name.toLower() + "` in your swazi.json";
+  }
+  data blacklist = fs.readFile(path.resolve(__dir__, "blacklist"), "utf8").split("\n").map(p => p.trim()).filter(p => p && !p.startsWith("#")) // blacklist
+  kama blacklist.kuna(name) {
+    tupa "Use of a blacklisted package name: `" + blacklist[idx ni blacklist.indexOf(name)] + "`,\nPackage name can not be one of bultin, special, keywords or swazi artifacts! eg. " + blacklist[idx...((idx + 3 >= (blacklist.size - 1)) ? (idx-3) : (idx+3))].join(", ");
+  }
+  data pattern = (/^(?:@[a-z0-9-]+\/)?[a-z0-9]+(?:[._-][a-z0-9]+)*$/)
+  rudisha pattern.test(name);
+}
+
+kazi validate_bin(root, manifest, files) {
+  kama !manifest.bin {
+    rudisha null
+  }
+
+  data bins = {}
+
+  // 1️⃣ normalize
+  kama ainaya manifest.bin == ainaya "" {
+    data pkg = (parts ni manifest.name.split("/"))[parts.size - 1];
+    bins[pkg] = manifest.bin
+  }
+  sivyo kama ainaya manifest.bin == ainaya {} {
+    bins = manifest.bin
+  }
+  sivyo {
+    tupa "Invalid bin field: must be string or object"
+  }
+
+  kwa (cmd, rel) ktk bins {
+
+    // 2️⃣ command name
+    kama !cmd || /[\/\\]/.test(cmd) {
+      tupa "Invalid bin command name: " + cmd
+    }
+
+    kama !(/^[a-zA-Z0-9._-]+$/).test(cmd) {
+      tupa "Invalid bin command name format: " + cmd
+    }
+
+    // 3️⃣ path string
+    kama ainaya rel != ainaya "" {
+      tupa "Bin path for '" + cmd + "' must be a string"
+    }
+
+    kama path.isAbsolute(rel) {
+      tupa "Bin path must be relative: " + rel
+    }
+
+    // 4️⃣ resolve
+    data full = path.resolve(root, rel)
+    data rel_to_root = path.relative(root, full)
+
+    kama rel_to_root.startsWith("..") {
+      tupa "Bin path escapes package root: " + rel
+    }
+
+    // 5️⃣ exists
+    kama !fs.exists(full) {
+      tupa "Bin file not found: " + rel
+    }
+
+    data stat = fs.stat(full)
+    kama !stat.isFile {
+      tupa "Bin target must be a file: " + rel
+    }
+
+    // 6️⃣ executable or shebang
+    data content = fs.readFile(full, "utf8")
+    kama !(stat.mode & 0o111) au !content.startsWith("#!") {
+      tupa "Bin file must be executable and have a shebang: " + rel
+    }
+
+    // 7️⃣ included in artifact
+    kama !files.kuna(rel_to_root) {
+      tupa "Bin file not included in package files: " + rel
+    }
+  }
+
+  rudisha bins
+}
+
+kazi(
+  is_version_spec_valid(spec) {
+    kama ainaya spec != ainaya "" {
+      tupa "Dependency version must be a string"
+    }
+
+    spec = spec.trim()
+
+    kama !spec {
+      tupa "Dependency version cannot be empty"
+    }
+
+    // common semver / range patterns
+    data patterns = [
+      /^\*$/, // *
+      /^(latest|alpha|beta|next)$/, // tags
+      /^[~^]?\d+\.\d+\.\d+$/, // 1.2.3, ^1.2.3, ~1.2.3
+      /^( >= | <= | > | <)\d+\.\d+\.\d+$/, // >=1.0.0
+      /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/ // prerelease
+    ]
+
+    kwa p ktk patterns {
+      kama p.test(spec) {
+        rudisha kweli
+      }
+    }
+
+    tupa "Invalid dependency version specifier: `" + spec + "`"
+  },
+  validate_dep_block(block, block_name) {
+    kama !block {
+      rudisha {} // optional field
+    }
+
+    kama ainaya block != ainaya {} {
+      tupa "`" + block_name + "` must be an object"
+    }
+
+    data normalized = {}
+
+    kwa kila (name, spec) ktk block {
+
+      // package name rules (reuse your existing validator)
+      kama !package_name_is_valid(name) {
+        tupa "Invalid package name in `" + block_name + "`: " + name
+      }
+
+      // version spec only — no resolution
+      is_version_spec_valid(spec)
+
+      normalized[name] = spec.trim()
+    }
+
+    rudisha normalized
+  },
+  validate_dependencies(manifest) {
+    data vendor = validate_dep_block(
+      manifest.vendor,
+      "vendor"
+    )
+
+    data devs = validate_dep_block(
+      manifest.devs,
+      "devs"
+    )
+
+    // Optional: prevent overlap
+    kwa name ktk Object.keys(vendor) {
+      kama Object.keys(devs).kuna(name) {
+        LOG(WARN,
+          "Package `" + name +
+          "` appears in both vendor and devs"
+        )
+      }
+    }
+
+    rudisha {
+      vendor,
+      devs
+    }
+  })
+
+kazi package_version_is_valid(version) {
+  kama !version au !version.trim() {
+    tupa "Package version is required";
+  }
+
+  version = version.trim();
+
+  data semver_pattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
+
+  kama !semver_pattern.test(version) {
+    tupa "Invalid package version: `" + version + "`\nUse Semantic Versioning: MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]\nEg: 1.0.0, 0.1.5, 2.3.0-alpha.1";
+  }
+
+
+  rudisha kweli;
+}
+
+kazi package_entry_is_valid(entry, package_root) {
+  kama !entry au !entry.trim() {
+    tupa "Entry point is required";
+  }
+
+  data entry = entry.trim();
+
+  // Resolve absolute path
+  data full_path = path.resolve(package_root, entry);
+
+  // Check if file exists
+  kama !fs.exists(full_path) {
+    tupa "Entry point file does not exist: `" + entry + "`";
+  }
+
+  // Ensure it's a file
+  data stat = fs.stat(full_path);
+  kama !stat.isFile {
+    tupa "Entry point must be a file, not a directory: `" + entry + "`";
+  }
+
+  // Check allowed extensions
+  data allowed_extensions = [".sl",
+    ".swz"];
+  data ext = path.extname(full_path);
+  kama !allowed_extensions.kuna(ext) {
+    tupa "Unsupported entry point file extension: `" + ext + "`\nAllowed extensions: " + allowed_extensions.join(", ");
+  }
+
+  // Optional: prevent paths outside package
+  data relative = path.relative(package_root, full_path);
+  kama relative.startsWith("..") {
+    tupa "Entry point cannot be outside the package directory: `" + entry + "`";
+  }
+
+  rudisha kweli;
+}
+
+kazi scan_package_files(root, manifest) {
+  data files = [];
+  data ignored = ["vendor",
+    ".git",
+    "swazi.lock"]
+  LOG(INFO, "scanning project for files...")
+  kama manifest.files na (ainaya manifest.files == ainaya []) na manifest.files.size > 0 {
+    manifest.files = manifest.files.extend(["README.md", "LICENCE", "swazi.json"])
+    kwa kila f ktk manifest.files {
+      data fls = fs.glob(f, {
+        cwd: root,
+        onlyFiles: kweli,
+        ignore: ["vendor/**"]
+      })
+      files = files.extend(fls)
+      LOG(HINT, "Scanning all `" + f + "` file pattern")
+    }
+  }
+  sivyo {
+    data stack = [root];
+    wakati !stack.empty() {
+      data cpth = stack.pop();
+      data ls = fs.listDir(cpth);
+      LOG(HINT, "Scanning " + path.relative(root, cpth))
+      kwa kila l ktk ls {
+        kama ignored.kuna(l) || l.startsWith(".") =>> endelea
+        data full = path.join(cpth, l);
+        data stat = fs.stat(full);
+
+        kama stat.isDir {
+          stack.push(full);
+        }
+        sivyo {
+          files.push(
+            path.relative(root, full)
+          );
+        }
+      }
+    }
+    // try to filter out some user defined-ignores
+    kama (manifest.ignore na ainaya manifest.ignore sawa ainaya [] na !manifest.ignore.empty()) {
+      kwa f ktk manifest.ignore {
+        data fps = fs.glob(f, {
+          cwd: root,
+          onlyFiles: kweli
+        })
+        kwa kila fp ktk fps {
+          files = files.filter(p => fp != p)
+        }
+      }
+    }
+  }
+  LOG(INFO, "finish scanning...")
+  rudisha files;
+}
+
+kazi create_artifact(root, paths) {
+  data writer = archiver.createTar(path.join(root, "swazi-pkg.tar"))
+  LOG(INFO, "creating an artifact...")
+  kwa p ktk paths.sort() {
+    data content = fs.readFile(path.resolve(root, p), {
+      encoding: "binary"
+    });
+    LOG(INFO, "⚡️ Adding: " + p)
+    writer.addBuffer(
+      p,
+      content,
+      {
+        mtime: 1, mode: 0o644, uid: 0, gid: 0
+      }
+    )
+  }
+  writer.finalize()
+  data artifact = archiver.gzipBuffer(fs.readFile(path.join(root, "swazi-pkg.tar"), {
+    encoding: "binary"
+  }))
+  fs.remove(path.resolve(root, "swazi-pkg.tar"))
+  rudisha artifact;
+}
+// compute_hash
+kazi compute_hash(artifact) {
+  LOG(INFO, "computing integrity checksum...")
+  rudisha crypto.hash("sha256", artifact).toStr("hex")
+}
+
+kazi extract_tar_gz(tarball) {
+  data tar = archiver.gunzipBuffer(tarball);
+  data untarred = archiver.untarBuffer(tar)
+  rudisha untarred
+}
+
+// export
+ruhusu {
+  get_project_root,
+  load_and_parse_manifestfile,
+  is_readme_available_at_root,
+  load_readme,
+  package_name_is_valid,
+  package_version_is_valid,
+  package_entry_is_valid,
+  scan_package_files,
+  create_artifact,
+  compute_hash,
+  validate_bin,
+  validate_dependencies,
+  extract_tar_gz
+}

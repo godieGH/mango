@@ -1,0 +1,2 @@
+# Mango:
+> swazi external package manager written in swazi, a prototype sof swazi package manager, swazi is basically intending to ship its package manager into the its swazi software but mango is an external prototype written in swazi that design to work as what swazi internal package manager will work

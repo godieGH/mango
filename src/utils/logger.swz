@@ -1,0 +1,41 @@
+
+tumia chalk kutoka "vendor:chalk"
+
+data &CODE = {
+  INFO: 1,
+  ERROR: 2,
+  WARN: 3,
+  HINT: 4
+};
+CODE.__proto__.freeze(kweli);
+
+kazi LOG(code, message) {
+  chagua code {
+    ikiwa CODE.INFO {
+      data label = chalk.bold("mango ") + chalk.blue.bold("notice");
+      chapisha(label, message)
+      simama;
+    }
+    ikiwa CODE.ERROR {
+      data label = chalk.bold("mango ") + chalk.red.bold("error");
+      chapisha(label, message)
+      simama;
+    }
+    ikiwa CODE.WARN {
+      data label = chalk.bold("mango ") + chalk.yellow.bold("warn");
+      chapisha(label, message)
+      simama;
+    }
+    ikiwa CODE.HINT {
+      data label = chalk.hex("#e6a722").bold("[HINT]");
+      chapisha(label, message)
+      simama;
+    }
+    kaida {
+      chapisha(message)
+    }
+  }
+}
+
+data {INFO, ERROR, WARN, HINT} = CODE
+ruhusu {INFO, ERROR, WARN, HINT, LOG}
