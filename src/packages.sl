@@ -1121,7 +1121,7 @@ kazi async install_package(cli) {
   kama !is_global na !LOCAL_ROOT {
     LOG(ERROR, "Not in a project directory.")
     LOG(ERROR, "Either run this command from a project root, or use -g for global install:")
-    LOG(ERROR, "  swazi install -g <package>")
+    LOG(ERROR, "  swazi vendor install -g <package>")
     rudisha
   }
 
@@ -1229,7 +1229,7 @@ kazi unlink_package(cli) {
   kama !is_global na !LOCAL_ROOT {
     LOG(ERROR, "Not in a project directory.")
     LOG(ERROR, "Either run this command from a project root, or use -g for global unlink:")
-    LOG(ERROR, "  swazi unlink -g <package>")
+    LOG(ERROR, "  swazi vendor unlink -g <package>")
     rudisha
   }
   data save = cli.flags.save au sikweli
@@ -1359,7 +1359,7 @@ kazi update_package(cli) {
   kama !is_global na !LOCAL_ROOT {
     LOG(ERROR, "Not in a project directory.")
     LOG(ERROR, "Either run this command from a project root, or use -g for global update:")
-    LOG(ERROR, "  swazi update -g <package>")
+    LOG(ERROR, "  swazi vendor update -g <package>")
     rudisha
   }
   data target_root = is_global ? GLOBAL_ROOT : LOCAL_ROOT
@@ -1481,7 +1481,7 @@ kazi list_packages(cli) {
     // List local packages
     kama !LOCAL_ROOT {
       LOG(ERROR, "Not in a project directory.")
-      LOG(ERROR, "Use -g to list global packages: swazi list -g")
+      LOG(ERROR, "Use -g to list global packages: swazi vendor list -g")
       rudisha
     }
 
@@ -1712,7 +1712,7 @@ kazi mango_setup(cli) {
       LOG(null, "\nGlobals directory: " + globals_dir)
 
       // Platform-specific instructions
-      kama platform == "linux" au platform == "darwin" {
+      kama platform == "linux" au platform == "macos" {
         LOG(null, "\nFor bash, add this to ~/.bashrc or ~/.bash_profile:")
         LOG(null, "  export PATH=\"" + globals_dir + ":$PATH\"")
 
@@ -1764,9 +1764,9 @@ kazi mango_setup(cli) {
     kama !is_in_path {
       LOG(null, "  1. Add globals directory to PATH (see instructions above)")
       LOG(null, "  2. Restart your terminal")
-      LOG(null, "  3. Install packages: swazi install -g <package>")
+      LOG(null, "  3. Install packages: swazi vendor install -g <package>")
     } sivyo {
-      LOG(null, "  1. Install packages: swazi install -g <package>")
+      LOG(null, "  1. Install packages: swazi vendor install -g <package>")
       LOG(null, "  2. Or initialize a project: swazi init")
     }
 
@@ -1826,8 +1826,8 @@ kazi search_packages(cli) {
 
   kama !query {
     LOG(ERROR, "Please provide a search query")
-    LOG(null, "Usage: swazi search <query>")
-    LOG(null, "       swazi search <query> --limit 10")
+    LOG(null, "Usage: swazi vendor search <query>")
+    LOG(null, "       swazi vendor search <query> --limit 10")
     rudisha
   }
 
@@ -1886,7 +1886,7 @@ kazi search_packages(cli) {
       chapisha "  " + chalk.dim("↓ ") + pkg.downloads + chalk.dim(" downloads")
 
       // Install command
-      chapisha "  " + chalk.dim("Install: ") + chalk.cyan("swazi install " + pkg.name)
+      chapisha "  " + chalk.dim("Install: ") + chalk.cyan("swazi vendor install " + pkg.name)
 
       chapisha ""
     }
@@ -1895,7 +1895,7 @@ kazi search_packages(cli) {
     kama results.total > (offset + limit) {
       data next_offset = offset + limit
       chapisha chalk.dim("More results available. Use: ") +
-      chalk.cyan("swazi search \"" + query + "\" --offset " + next_offset)
+      chalk.cyan("swazi vendor search \"" + query + "\" --offset " + next_offset)
       chapisha ""
     }
 
@@ -1913,7 +1913,7 @@ kazi info_package(cli) {
 
   kama !pkg_name {
     LOG(ERROR, "Please provide a package name")
-    LOG(INFO, "Usage: swazi info <package-name>")
+    LOG(INFO, "Usage: swazi vendor info <package-name>")
     rudisha
   }
 
@@ -1933,7 +1933,7 @@ kazi info_package(cli) {
 
     kama !metadata.success {
       LOG(ERROR, "Package not found: " + pkg_name)
-      LOG(HINT, "Search for packages: swazi search <query>")
+      LOG(HINT, "Search for packages: swazi vendor search <query>")
       rudisha
     }
 
@@ -2010,8 +2010,8 @@ kazi info_package(cli) {
     // Install command
     chapisha ""
     chapisha chalk.bold("Install:")
-    chapisha "  Local:  " + chalk.cyan("swazi install " + pkg_name)
-    chapisha "  Global: " + chalk.cyan("swazi install -g " + pkg_name)
+    chapisha "  Local:  " + chalk.cyan("swazi vendor install " + pkg_name)
+    chapisha "  Global: " + chalk.cyan("swazi vendor install -g " + pkg_name)
     chapisha ""
 
   } makosa error {
