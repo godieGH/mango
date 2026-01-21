@@ -7,7 +7,7 @@
   "type": "package",
   "entry": "app.sl",
   "bin": "app.sl",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "vendor": {
     "swazi-toml": "latest",
     "chalk": "^1.0.0",

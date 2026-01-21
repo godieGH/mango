@@ -167,7 +167,8 @@ kazi main() {
   fanya {
     data cmd = parse(cli, {
       help: ["--help", "-h", null, null],
-      global: ["--global", "-g", null, null]
+      global: ["--global", "-g", null, null],
+      forceBuild: ["--force-build", null, null, null]
     })
     kama cmd.command == "install" {
       kama cmd.flags.help {
