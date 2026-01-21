@@ -25,7 +25,7 @@ tumia {
 tumia "./utils/logger.swz"
 
 // polyfill some functions
-fs.mkdir = (...args) => fs.makeDir(...args)
+fs.mkdir = (path, opt?) => fs.makeDir(path, opt?.recursive)
 fs.listdir = (a) => fs.listDir(a)
 fs.readdir = (dir_path, opt?) => {
   data dir_path = path.resolve(dir_path)
@@ -355,9 +355,7 @@ kazi compare_versions(a, b) {
   data a_parts = a.split(".").map(p => parseInt(p))
   data b_parts = b.split(".").map(p => parseInt(p))
 
-  kwa kila i ktk [0,
-    1,
-    2] {
+  kwa kila i ktk [0, 1, 2] {
     kama a_parts[i] > b_parts[i] =>> rudisha 1
     kama a_parts[i] < b_parts[i] =>> rudisha -1
   }
@@ -381,9 +379,7 @@ kazi resolve_version(versions, range) {
   }
 
   // Tag-based: beta, alpha, next
-  kama ["alpha",
-    "beta",
-    "next"].kuna(range) {
+  kama ["alpha", "beta", "next"].kuna(range) {
     // For now, treat as latest
     LOG(WARN, "Tag '" + range + "' treated as 'latest'")
     rudisha available[available.size - 1]
@@ -481,7 +477,7 @@ kazi resolve_all(specs, target_root) {
   // Parse and queue root specs
   kwa kila spec ktk specs {
     data parsed = parse_spec(spec)
-    queue.push( {
+    queue.push({
       name: parsed.name,
       range: parsed.range,
       parent: null,
@@ -1072,17 +1068,17 @@ kazi hash_manifest(manifest) {
     rudisha compute_hash(json.stringify( {}))
   }
 
-  // Normalize: sort keys alphabetically for consistent hashing
+  // Normalize: for consistent hashing
   data vendor = manifest.vendor
   data sorted_keys = Object.keys(vendor).sort()
-  data normalized = {}
-
+  
+  data pairs = []
   kwa kila key ktk sorted_keys {
-    normalized[key] = vendor[key]
+    pairs.push(`${key}:${json.stringify(vendor[key])}`)
   }
 
   // Hash the normalized vendor section
-  data vendor_json = json.stringify(normalized)
+  data vendor_json = pairs.join("|")
   rudisha compute_hash(vendor_json)
 }
 
@@ -1140,8 +1136,8 @@ kazi async install_package(cli) {
 
   // Lockfile path differs for global vs local
   data lock_path = is_global ?
-  path.resolve(GLOBAL_ROOT, "global.lock") :
-  path.resolve(target_root, "swazi.lock")
+    path.resolve(GLOBAL_ROOT, "swazi.lock") :
+    path.resolve(target_root, "swazi.lock")
 
   // Try to load existing lockfile
   data existing_lock = is_global ? load_lockfile(GLOBAL_ROOT) : load_lockfile(target_root)
@@ -1179,7 +1175,7 @@ kazi async install_package(cli) {
     } sivyo {
       // STAGE 1: Resolve all dependencies
       graph = resolve_all(specs, target_root)
-
+      
       // STAGE 2: Create new lock file with manifest hash
       lockdata = create_lockfile(graph, target_root, current_hash)
     }
@@ -1293,7 +1289,7 @@ kazi unlink_package(cli) {
           create_lockfile(graph, GLOBAL_ROOT, new_hash)
         } sivyo {
           // No more packages, remove lockfile
-          data lock_path = path.resolve(GLOBAL_ROOT, "global.lock")
+          data lock_path = path.resolve(GLOBAL_ROOT, "swazi.lock")
           kama fs.exists(lock_path) {
             fs.remove(lock_path)
           }
@@ -1416,8 +1412,8 @@ kazi update_package(cli) {
 
     // Force re-resolution by removing lockfile
     data lock_path = is_global ?
-    path.resolve(GLOBAL_ROOT, "global.lock") :
-    path.resolve(target_root, "swazi.lock")
+      path.resolve(GLOBAL_ROOT, "swazi.lock") :
+      path.resolve(target_root, "swazi.lock")
 
     kama fs.exists(lock_path) {
       fs.remove(lock_path)
